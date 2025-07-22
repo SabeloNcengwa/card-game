@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Higher or Lower - Card Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .card {
+            width: 120px;
+            height: 168px;
+            background: white;
+            border-radius: 12px;
+            margin: 0 auto 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        .card-back {
+            background: linear-gradient(45deg, #1a237e, #3949ab);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+        }
+
+        .card-front {
+            color: black;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .card-suit {
+            font-size: 3rem;
+        }
+
+        .red {
+            color: #d32f2f;
+        }
+
+        .black {
+            color: #424242;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .higher {
+            background: linear-gradient(45deg, #4caf50, #81c784);
+            color: white;
+        }
+
+        .lower {
+            background: linear-gradient(45deg, #f44336, #ef5350);
+            color: white;
+        }
+
+        .new-game {
+            background: linear-gradient(45deg, #ff9800, #ffb74d);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            min-height: 2rem;
+            font-weight: bold;
+        }
+
+        .streak {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #ffeb3b;
+        }
+
+        .flip-animation {
+            animation: flip 0.6s ease-in-out;
+        }
+
+        @keyframes flip {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(90deg); }
+            100% { transform: rotateY(0deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Higher or Lower</h1>
+        
+        <div class="score-board">
+            <div>Score: <span id="score">0</span></div>
+            <div>Best: <span id="bestScore">0</span></div>
+        </div>
+
+        <div class="streak" id="streak">Current Streak: 0</div>
+
+        <div class="card" id="currentCard">
+            <div class="card-back">?</div>
+        </div>
+
+        <div class="result" id="result"></div>
+
+        <div class="buttons">
+            <button class="higher" id="higherBtn" onclick="makeGuess('higher')">Higher</button>
+            <button class="lower" id="lowerBtn" onclick="makeGuess('lower')">Lower</button>
+        </div>
+
+        <button class="new-game" onclick="startNewGame()">New Game</button>
+    </div>
+
+    <script>
+        class CardGame {
+            constructor() {
+                this.suits = ['♠', '♥', '♦', '♣'];
+                this.values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+                this.deck = [];
+                this.currentCard = null;
+                this.nextCard = null;
+                this.score = 0;
+                this.bestScore = parseInt(localStorage.getItem('bestScore') || '0');
+                this.streak = 0;
+                this.gameStarted = false;
+                
+                this.createDeck();
+                this.updateDisplay();
+            }
+
+            createDeck() {
+                this.deck = [];
+                for (let suit of this.suits) {
+                    for (let i = 0; i < this.values.length; i++) {
+                        this.deck.push({
+                            suit: suit,
+                            value: this.values[i],
+                            numValue: i + 1
+                        });
+                    }
+                }
+                this.shuffleDeck();
+            }
+
+            shuffleDeck() {
+                for (let i = this.deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+                }
+            }
+
+            drawCard() {
+                if (this.deck.length === 0) {
+                    this.createDeck();
+                }
+                return this.deck.pop();
+            }
+
+            startGame() {
+                this.currentCard = this.drawCard();
+                this.nextCard = this.drawCard();
+                this.gameStarted = true;
+                this.showCurrentCard();
+                document.getElementById('higherBtn').disabled = false;
+                document.getElementById('lowerBtn').disabled = false;
+            }
+
+            showCurrentCard() {
+                const cardElement = document.getElementById('currentCard');
+                const isRed = this.currentCard.suit === '♥' || this.currentCard.suit === '♦';
+                
+                cardElement.innerHTML = `
+                    <div class="card-front">
+                        <div class="card-value ${isRed ? 'red' : 'black'}">${this.currentCard.value}</div>
+                        <div class="card-suit ${isRed ? 'red' : 'black'}">${this.currentCard.suit}</div>
+                        <div class="card-value ${isRed ? 'red' : 'black'}" style="transform: rotate(180deg);">${this.currentCard.value}</div>
+                    </div>
+                `;
+                
+                cardElement.classList.add('flip-animation');
+                setTimeout(() => cardElement.classList.remove('flip-animation'), 600);
+            }
+
+            makeGuess(guess) {
+                if (!this.gameStarted) {
+                    this.startGame();
+                    return;
+                }
+
+                const currentValue = this.currentCard.numValue;
+                const nextValue = this.nextCard.numValue;
+                let correct = false;
+
+                if (guess === 'higher' && nextValue >= currentValue) {
+                    correct = true;
+                } else if (guess === 'lower' && nextValue <= currentValue) {
+                    correct = true;
+                }
+
+                this.currentCard = this.nextCard;
+                this.nextCard = this.drawCard();
+
+                if (correct) {
+                    this.score += 10;
+                    this.streak++;
+                    document.getElementById('result').textContent = 'Correct! +10 points';
+                    document.getElementById('result').style.color = '#4caf50';
+                } else {
+                    document.getElementById('result').textContent = 'Wrong! Game Over';
+                    document.getElementById('result').style.color = '#f44336';
+                    this.endGame();
+                    return;
+                }
+
+                this.showCurrentCard();
+                this.updateDisplay();
+            }
+
+            endGame() {
+                this.gameStarted = false;
+                if (this.score > this.bestScore) {
+                    this.bestScore = this.score;
+                    localStorage.setItem('bestScore', this.bestScore.toString());
+                }
+                document.getElementById('higherBtn').disabled = true;
+                document.getElementById('lowerBtn').disabled = true;
+                this.updateDisplay();
+            }
+
+            newGame() {
+                this.score = 0;
+                this.streak = 0;
+                this.gameStarted = false;
+                this.createDeck();
+                
+                document.getElementById('currentCard').innerHTML = '<div class="card-back">?</div>';
+                document.getElementById('result').textContent = 'Click Higher or Lower to start!';
+                document.getElementById('result').style.color = 'white';
+                document.getElementById('higherBtn').disabled = false;
+                document.getElementById('lowerBtn').disabled = false;
+                
+                this.updateDisplay();
+            }
+
+            updateDisplay() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('bestScore').textContent = this.bestScore;
+                document.getElementById('streak').textContent = `Current Streak: ${this.streak}`;
+            }
+        }
+
+        // Initialize game
+        const game = new CardGame();
+
+        // Global functions for button clicks
+        function makeGuess(guess) {
+            game.makeGuess(guess);
+        }
+
+        function startNewGame() {
+            game.newGame();
+        }
+
+        // Show initial instruction
+        document.getElementById('result').textContent = 'Click Higher or Lower to start!';
+    </script>
+</body>
+</html>
